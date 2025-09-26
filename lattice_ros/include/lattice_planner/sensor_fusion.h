@@ -5,6 +5,7 @@
 #include <geometry_msgs/Point.h>
 #include <sensor_msgs/PointCloud.h>
 #include <std_msgs/Header.h>
+#include <ros/time.h>  // 添加时间相关的包含
 
 namespace lattice_planner {
 

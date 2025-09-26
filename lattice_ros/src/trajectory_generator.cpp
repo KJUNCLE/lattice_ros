@@ -286,6 +286,7 @@ bool TrajectoryGenerator::isTrajectoryValid(const Trajectory& trajectory,
     return true;
 }
 
+// 计算参考路径上每个点的累积弧长，为后续的 Frenet 坐标系转换提供基础
 void TrajectoryGenerator::preprocessReferencePath() {
     reference_s_.clear();
     

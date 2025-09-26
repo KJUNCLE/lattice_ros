@@ -37,8 +37,11 @@ public:
     bool isPointCollisionFree(const TrajectoryPoint& point);
     double calculateCollisionCost(const Trajectory& trajectory);
     
-    // 设置安全距离
+    // 设置参数
     void setSafetyMargin(double margin) { safety_margin_ = margin; }
+    void setCameraDetectionRange(double range) { camera_detection_range_ = range; }
+    void setRadarDetectionRange(double range) { radar_detection_range_ = range; }
+    void setObstacleConfidenceThreshold(double threshold) { obstacle_confidence_threshold_ = threshold; }
 
 private:
     VehicleFootprint vehicle_footprint_;

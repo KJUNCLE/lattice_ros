@@ -177,13 +177,16 @@ ObstacleInfo SensorFusion::interpolateObstacles(const ObstacleInfo& obs1,
     fused.position.y = weight * obs1.position.y + (1.0 - weight) * obs2.position.y;
     fused.position.z = weight * obs1.position.z + (1.0 - weight) * obs2.position.z;
     
-    // 速度信息优先使用雷达数据
-    if (obs2.sensor_type == "radar") {
+    // 速度信息优先使用雷达数据，如果雷达没有速度信息则使用加权平均
+    if (obs2.sensor_type == "radar" && (abs(obs2.velocity_x) > 1e-6 || abs(obs2.velocity_y) > 1e-6)) {
         fused.velocity_x = obs2.velocity_x;
         fused.velocity_y = obs2.velocity_y;
-    } else {
+    } else if (obs1.sensor_type == "radar" && (abs(obs1.velocity_x) > 1e-6 || abs(obs1.velocity_y) > 1e-6)) {
         fused.velocity_x = obs1.velocity_x;
         fused.velocity_y = obs1.velocity_y;
+    } else {
+        fused.velocity_x = weight * obs1.velocity_x + (1.0 - weight) * obs2.velocity_x;
+        fused.velocity_y = weight * obs1.velocity_y + (1.0 - weight) * obs2.velocity_y;
     }
     
     // 置信度加权平均

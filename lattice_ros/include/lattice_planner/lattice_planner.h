@@ -8,6 +8,7 @@
 #include <nav_msgs/OccupancyGrid.h>
 #include <sensor_msgs/LaserScan.h>
 #include <sensor_msgs/PointCloud.h>
+#include <nav_msgs/Odometry.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
@@ -61,6 +62,7 @@ private:
     ros::Subscriber current_pose_sub_;       // RTK定位
     ros::Subscriber camera_obstacles_sub_;   // 相机检测的障碍物
     ros::Subscriber radar_obstacles_sub_;    // 4D毫米波雷达障碍物
+    ros::Subscriber odom_sub_;               // 里程计数据
     
     // 发布者
     ros::Publisher local_path_pub_;
@@ -78,6 +80,12 @@ private:
     // 配置参数
     PlannerConfig config_;
     
+    // 传感器融合参数
+    double safety_margin_;
+    double camera_detection_range_;
+    double radar_detection_range_;
+    double obstacle_confidence_threshold_;
+    
     // 状态变量
     geometry_msgs::PoseStamped current_pose_;
     geometry_msgs::Twist current_velocity_;
@@ -89,6 +97,7 @@ private:
     bool has_current_pose_;
     bool has_camera_data_;
     bool has_radar_data_;
+    bool has_odom_data_;
     
     // 跟随参数
     double following_distance_;              // 跟随距离
@@ -102,6 +111,7 @@ private:
     void currentPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg);
     void cameraObstaclesCallback(const sensor_msgs::PointCloud::ConstPtr& msg);
     void radarObstaclesCallback(const sensor_msgs::PointCloud::ConstPtr& msg);
+    void odomCallback(const nav_msgs::Odometry::ConstPtr& msg);
     
     // 核心规划函数
     bool planLocalPath();

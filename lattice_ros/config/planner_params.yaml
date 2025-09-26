@@ -1,0 +1,33 @@
+# 规划参数
+planning_horizon: 5.0
+dt: 0.2
+num_lateral_samples: 5
+num_longitudinal_samples: 3
+
+# 代价函数权重
+w_collision: 100.0
+w_comfort: 10.0
+w_efficiency: 1.0
+w_reference: 5.0
+
+# 跟随参数
+following_distance: 10.0
+lateral_offset: 0.0
+
+# 车辆参数
+max_speed: 2.0
+max_acceleration: 1.0
+max_deceleration: -2.0
+max_curvature: 1.0
+vehicle_length: 4.5
+vehicle_width: 2.0
+
+# 传感器融合参数
+association_threshold: 2.0
+camera_weight: 0.6
+radar_weight: 0.4
+max_obstacle_age: 1.0
+safety_margin: 0.2
+camera_detection_range: 50.0
+radar_detection_range: 100.0
+obstacle_confidence_threshold: 0.5

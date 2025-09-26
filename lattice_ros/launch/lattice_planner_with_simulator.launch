@@ -34,6 +34,16 @@
     <param name="base_frame" value="base_link" />
     <param name="map_frame" value="map" />
     
+    <!-- 话题重映射 -->
+    <remap from="leader_trajectory" to="/leader_vehicle/trajectory" />
+    <remap from="rtk_pose" to="/rtk/current_pose" />
+    <remap from="camera_obstacles" to="/perception/camera_obstacles" />
+    <remap from="radar_obstacles" to="/perception/radar_obstacles" />
+    <remap from="odom" to="/odom" />
+    <remap from="local_path" to="/lattice_planner/local_path" />
+    <remap from="cmd_vel" to="/cmd_vel" />
+    <remap from="lattice_visualization" to="/lattice_planner/visualization" />
+    
   </node>
   
   <!-- RViz可视化 -->

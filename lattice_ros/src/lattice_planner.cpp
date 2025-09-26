@@ -4,9 +4,13 @@
 namespace lattice_planner {
 
 LatticePlanner::LatticePlanner(ros::NodeHandle& nh, ros::NodeHandle& pnh)
-    : nh_(nh), pnh_(pnh), has_leader_trajectory_(false), has_current_pose_(false), 
-      has_camera_data_(false), has_radar_data_(false), base_frame_("base_link"), 
-      map_frame_("map"), following_distance_(10.0), lateral_offset_(0.0) {
+    : nh_(nh), pnh_(pnh), 
+      has_leader_trajectory_(false), has_current_pose_(false), 
+      has_camera_data_(false), has_radar_data_(false), has_odom_data_(false),
+      base_frame_("base_link"), map_frame_("map"), 
+      following_distance_(10.0), lateral_offset_(0.0),
+      safety_margin_(0.2), camera_detection_range_(50.0), 
+      radar_detection_range_(100.0), obstacle_confidence_threshold_(0.5) {
     
     // 初始化TF
     tf_buffer_ = std::make_unique<tf2_ros::Buffer>();
@@ -35,6 +39,9 @@ bool LatticePlanner::initialize() {
     // 雷达障碍物
     radar_obstacles_sub_ = nh_.subscribe("radar_obstacles", 1, 
         &LatticePlanner::radarObstaclesCallback, this);
+    // 里程计数据
+    odom_sub_ = nh_.subscribe("odom", 1, 
+        &LatticePlanner::odomCallback, this);
     
     // 设置发布者
     local_path_pub_ = nh_.advertise<nav_msgs::Path>("local_path", 1);
@@ -83,6 +90,20 @@ void LatticePlanner::loadParameters() {
     // 坐标系
     pnh_.param<std::string>("base_frame", base_frame_, "base_link");
     pnh_.param<std::string>("map_frame", map_frame_, "map");
+    
+    // 传感器融合参数
+    pnh_.param("safety_margin", safety_margin_, 0.2);
+    pnh_.param("camera_detection_range", camera_detection_range_, 50.0);
+    pnh_.param("radar_detection_range", radar_detection_range_, 100.0);
+    pnh_.param("obstacle_confidence_threshold", obstacle_confidence_threshold_, 0.5);
+    
+    // 设置碰撞检测器参数
+    if (collision_checker_) {
+        collision_checker_->setSafetyMargin(safety_margin_);
+        collision_checker_->setCameraDetectionRange(camera_detection_range_);
+        collision_checker_->setRadarDetectionRange(radar_detection_range_);
+        collision_checker_->setObstacleConfidenceThreshold(obstacle_confidence_threshold_);
+    }
 }
 
 void LatticePlanner::run() {
@@ -100,11 +121,14 @@ void LatticePlanner::leaderTrajectoryCallback(const nav_msgs::Path::ConstPtr& ms
     ROS_INFO("Received leader trajectory with %zu points", msg->poses.size());
 }
 
+// 获取当前车辆的位姿信息，并将 has_current_pose_ 置 1
 void LatticePlanner::currentPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
     current_pose_ = *msg;
     has_current_pose_ = true;
 }
 
+// 处理视觉障碍物信息
+// 消息格式待修改
 void LatticePlanner::cameraObstaclesCallback(const sensor_msgs::PointCloud::ConstPtr& msg) {
     camera_obstacles_.clear();
     for (const auto& point32 : msg->points) {
@@ -118,6 +142,8 @@ void LatticePlanner::cameraObstaclesCallback(const sensor_msgs::PointCloud::Cons
     collision_checker_->setCameraObstacles(camera_obstacles_);
 }
 
+// 处理雷达障碍物信息
+// 消息格式待修改
 void LatticePlanner::radarObstaclesCallback(const sensor_msgs::PointCloud::ConstPtr& msg) {
     radar_obstacles_.clear();
     for (const auto& point32 : msg->points) {
@@ -129,6 +155,12 @@ void LatticePlanner::radarObstaclesCallback(const sensor_msgs::PointCloud::Const
     }
     has_radar_data_ = true;
     collision_checker_->setRadarObstacles(radar_obstacles_);
+}
+
+void LatticePlanner::odomCallback(const nav_msgs::Odometry::ConstPtr& msg) {
+    // 直接使用里程计提供的速度信息
+    current_velocity_ = msg->twist.twist;
+    has_odom_data_ = true;
 }
 
 void LatticePlanner::planningTimerCallback(const ros::TimerEvent& event) {
@@ -234,19 +266,65 @@ Trajectory LatticePlanner::selectBestTrajectory(const std::vector<Trajectory>& t
 }
 
 bool LatticePlanner::getCurrentVelocity() {
+    // 如果有里程计数据，优先使用
+    if (has_odom_data_) {
+        // 速度信息已经在odomCallback中更新
+        return true;
+    }
+    
     try {
-        geometry_msgs::TransformStamped transform = tf_buffer_->lookupTransform(
-            base_frame_, base_frame_, ros::Time(0), ros::Duration(0.1));
+        // 尝试通过TF获取速度信息
+        // 这里使用差分方法计算速度，实际应用中最好使用里程计数据
+        static geometry_msgs::TransformStamped last_transform;
+        static ros::Time last_time;
         
-        // 简化处理，假设从其他节点获取速度信息
-        // 实际应用中可能需要从里程计或其他传感器获取
-        current_velocity_.linear.x = 0.0;  // 需要实际实现
-        current_velocity_.linear.y = 0.0;
-        current_velocity_.angular.z = 0.0;
+        geometry_msgs::TransformStamped transform = tf_buffer_->lookupTransform(
+            map_frame_, base_frame_, ros::Time(0), ros::Duration(0.1));
+        
+        if (last_time.isZero()) {
+            // 第一次调用，保存当前变换
+            last_transform = transform;
+            last_time = transform.header.stamp;
+            current_velocity_.linear.x = 0.0;
+            current_velocity_.linear.y = 0.0;
+            current_velocity_.angular.z = 0.0;
+            return true;
+        }
+        
+        // 计算时间差
+        double dt = (transform.header.stamp - last_time).toSec();
+        if (dt <= 0) {
+            return false;
+        }
+        
+        // 计算位置差
+        double dx = transform.transform.translation.x - last_transform.transform.translation.x;
+        double dy = transform.transform.translation.y - last_transform.transform.translation.y;
+        
+        // 计算线速度
+        current_velocity_.linear.x = dx / dt;
+        current_velocity_.linear.y = dy / dt;
+        
+        // 计算角速度 (简化处理)
+        tf2::Quaternion q1, q2;
+        tf2::fromMsg(last_transform.transform.rotation, q1);
+        tf2::fromMsg(transform.transform.rotation, q2);
+        
+        tf2::Quaternion diff = q2 * q1.inverse();
+        double roll, pitch, yaw;
+        tf2::Matrix3x3(diff).getRPY(roll, pitch, yaw);
+        current_velocity_.angular.z = yaw / dt;
+        
+        // 更新上次变换
+        last_transform = transform;
+        last_time = transform.header.stamp;
         
         return true;
     } catch (tf2::TransformException& ex) {
-        ROS_WARN("Failed to get current velocity: %s", ex.what());
+        ROS_WARN("Failed to get current velocity from TF: %s", ex.what());
+        
+        // 如果TF失败，可以尝试订阅里程计话题获取速度
+        // 这里暂时返回false，实际应用中应该有备用方案
         return false;
     }
 }
