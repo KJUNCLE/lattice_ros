@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- Lattice Planner Node -->
+  <node name="lattice_planner" pkg="lattice_planner" type="lattice_planner_node" output="screen">
+    
+    <!-- 规划参数 -->
+    <param name="planning_horizon" value="5.0" />
+    <param name="dt" value="0.2" />
+    <param name="num_lateral_samples" value="5" />
+    <param name="num_longitudinal_samples" value="3" />
+    
+    <!-- 车辆参数 -->
+    <param name="max_speed" value="2.0" />
+    <param name="max_acceleration" value="1.0" />
+    <param name="max_deceleration" value="-2.0" />
+    <param name="max_curvature" value="1.0" />
+    <param name="vehicle_length" value="4.5" />
+    <param name="vehicle_width" value="2.0" />
+    
+    <!-- 代价函数权重 -->
+    <param name="w_collision" value="100.0" />
+    <param name="w_comfort" value="10.0" />
+    <param name="w_efficiency" value="1.0" />
+    <param name="w_reference" value="5.0" />
+    
+    <!-- 跟随参数 -->
+    <param name="following_distance" value="10.0" />
+    <param name="lateral_offset" value="0.0" />
+    
+    <!-- 坐标系 -->
+    <param name="base_frame" value="base_link" />
+    <param name="map_frame" value="map" />
+    
+    <!-- 话题重映射 -->
+    <remap from="leader_trajectory" to="/leader_vehicle/trajectory" />
+    <remap from="rtk_pose" to="/rtk/current_pose" />
+    <remap from="camera_obstacles" to="/perception/camera_obstacles" />
+    <remap from="radar_obstacles" to="/perception/radar_obstacles" />
+    <remap from="local_path" to="/lattice_planner/local_path" />
+    <remap from="cmd_vel" to="/cmd_vel" />
+    <remap from="lattice_visualization" to="/lattice_planner/visualization" />
+    
+  </node>
+  
+  <!-- RViz可视化 (可选) -->
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find lattice_planner)/config/lattice_planner.rviz" if="$(arg use_rviz)" />
+  <arg name="use_rviz" default="false" />
+  
+</launch>
