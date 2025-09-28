@@ -5,9 +5,11 @@
 
 namespace lattice_planner {
 
+// 轨迹生成函数
 TrajectoryGenerator::TrajectoryGenerator() {
 }
 
+// 设置参考路径
 void TrajectoryGenerator::setReferencePath(const nav_msgs::Path& path) {
     reference_path_ = path;
     preprocessReferencePath();
@@ -98,6 +100,7 @@ std::vector<Trajectory> TrajectoryGenerator::generateTrajectories(
     return trajectories;
 }
 
+// 将笛卡尔坐标转换为Frenet坐标
 FrenetState TrajectoryGenerator::cartesianToFrenet(
     const geometry_msgs::PoseStamped& pose,
     const geometry_msgs::Twist& velocity) {
@@ -133,6 +136,7 @@ FrenetState TrajectoryGenerator::cartesianToFrenet(
     return frenet_state;
 }
 
+// 将Frenet坐标转换为笛卡尔坐标
 TrajectoryPoint TrajectoryGenerator::frenetToCartesian(const FrenetState& frenet_state, double s_ref) {
     TrajectoryPoint point;
     
@@ -176,6 +180,7 @@ TrajectoryPoint TrajectoryGenerator::frenetToCartesian(const FrenetState& frenet
     return point;
 }
 
+// 生成五次多项式轨迹
 std::vector<double> TrajectoryGenerator::generateQuinticPolynomial(
     double start_pos, double start_vel, double start_acc,
     double end_pos, double end_vel, double end_acc,
@@ -201,6 +206,7 @@ std::vector<double> TrajectoryGenerator::generateQuinticPolynomial(
     return std::vector<double>(coeffs.data(), coeffs.data() + coeffs.size());
 }
 
+// 生成四次多项式轨迹
 std::vector<double> TrajectoryGenerator::generateQuarticPolynomial(
     double start_pos, double start_vel, double start_acc,
     double end_vel, double end_acc,
@@ -225,6 +231,7 @@ std::vector<double> TrajectoryGenerator::generateQuarticPolynomial(
     return std::vector<double>(coeffs.data(), coeffs.data() + coeffs.size());
 }
 
+// 在横向生成均匀分布的采样目标点
 std::vector<double> TrajectoryGenerator::generateLateralTargets(int num_samples, double max_offset) {
     std::vector<double> targets;
     
@@ -241,6 +248,7 @@ std::vector<double> TrajectoryGenerator::generateLateralTargets(int num_samples,
     return targets;
 }
 
+// 在纵向生成均匀分布的采样目标点
 std::vector<double> TrajectoryGenerator::generateLongitudinalTargets(
     int num_samples, double current_speed, double max_speed, double planning_horizon) {
     
@@ -262,6 +270,7 @@ std::vector<double> TrajectoryGenerator::generateLongitudinalTargets(
     return targets;
 }
 
+// 检查轨迹是否满足速度、加速度和曲率限制
 bool TrajectoryGenerator::isTrajectoryValid(const Trajectory& trajectory, 
                                           double max_speed, double max_acceleration, 
                                           double max_deceleration, double max_curvature) {
@@ -286,6 +295,7 @@ bool TrajectoryGenerator::isTrajectoryValid(const Trajectory& trajectory,
     return true;
 }
 
+// 计算参考路径上每个点的累积弧长，为后续的 Frenet 坐标系转换提供基础
 void TrajectoryGenerator::preprocessReferencePath() {
     reference_s_.clear();
     
@@ -305,6 +315,7 @@ void TrajectoryGenerator::preprocessReferencePath() {
     }
 }
 
+// 寻找frenet坐标系下的目标点
 int TrajectoryGenerator::findClosestPoint(const geometry_msgs::PoseStamped& pose) {
     if (reference_path_.poses.empty()) {
         return -1;
@@ -326,6 +337,7 @@ int TrajectoryGenerator::findClosestPoint(const geometry_msgs::PoseStamped& pose
     return closest_idx;
 }
 
+// 计算两点之间的距离
 double TrajectoryGenerator::calculateDistance(const geometry_msgs::Point& p1, 
                                             const geometry_msgs::Point& p2) {
     double dx = p1.x - p2.x;
@@ -333,17 +345,20 @@ double TrajectoryGenerator::calculateDistance(const geometry_msgs::Point& p1,
     return sqrt(dx * dx + dy * dy);
 }
 
+// 计算两点之间的航向角
 double TrajectoryGenerator::calculateYaw(const geometry_msgs::Point& p1, 
                                        const geometry_msgs::Point& p2) {
     return atan2(p2.y - p1.y, p2.x - p1.x);
 }
 
+// 将弧度转为角度
 double TrajectoryGenerator::normalizeAngle(double angle) {
     while (angle > M_PI) angle -= 2.0 * M_PI;
     while (angle < -M_PI) angle += 2.0 * M_PI;
     return angle;
 }
 
+// 对2维向量进行旋转变换
 Eigen::Vector2d TrajectoryGenerator::rotate2D(const Eigen::Vector2d& vec, double angle) {
     Eigen::Matrix2d rotation;
     rotation << cos(angle), -sin(angle),

@@ -100,11 +100,14 @@ void LatticePlanner::leaderTrajectoryCallback(const nav_msgs::Path::ConstPtr& ms
     ROS_INFO("Received leader trajectory with %zu points", msg->poses.size());
 }
 
+// 获取当前车辆的位姿信息，并将 has_current_pose_ 置 1
 void LatticePlanner::currentPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
     current_pose_ = *msg;
     has_current_pose_ = true;
 }
 
+// 处理视觉障碍物信息
+// 消息格式待修改
 void LatticePlanner::cameraObstaclesCallback(const sensor_msgs::PointCloud::ConstPtr& msg) {
     camera_obstacles_.clear();
     for (const auto& point32 : msg->points) {
@@ -118,6 +121,8 @@ void LatticePlanner::cameraObstaclesCallback(const sensor_msgs::PointCloud::Cons
     collision_checker_->setCameraObstacles(camera_obstacles_);
 }
 
+// 处理雷达障碍物信息
+// 消息格式待修改
 void LatticePlanner::radarObstaclesCallback(const sensor_msgs::PointCloud::ConstPtr& msg) {
     radar_obstacles_.clear();
     for (const auto& point32 : msg->points) {
